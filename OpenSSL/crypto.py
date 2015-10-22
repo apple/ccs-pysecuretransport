@@ -20,7 +20,7 @@ An API compatible replace for pyOpenSSL's OpenSSL.crypto module that uses Securi
 
 from osx._corefoundation import ffi, lib as security
 from osx.corefoundation import CFDictionaryRef, CFStringRef, CFArrayRef, \
-    CFBooleanRef, CFObjectRef, CFErrorRef
+    CFBooleanRef, CFObjectRef, CFErrorRef, CFDataRef
 
 userIDOID = "0.9.2342.19200300.100.1.1"
 
@@ -50,6 +50,16 @@ class Error(Exception):
 
 
 
+class PKey(object):
+    """
+    Equivalent of an pyOpenSSL OpenSSL.crypto.PKey object, with many methods unimplemented.
+    """
+
+    def __init__(self, pkey=None):
+        self._pkey = pkey
+
+
+
 class X509Name(object):
     """
     Equivalent of an pyOpenSSL OpenSSL.crypto.X509Name object.
@@ -70,7 +80,7 @@ class X509(object):
     """
 
     def __init__(self, certificate=None):
-        self.certificate = certificate
+        self._x509 = certificate
 
 
     def set_version(self, version):
@@ -164,7 +174,7 @@ class X509(object):
         """
         keys = CFArrayRef.fromList([CFStringRef.fromRef(security.kSecOIDX509V1SubjectName)])
         error = ffi.new("CFErrorRef *")
-        values = security.SecCertificateCopyValues(self.certificate.ref(), keys.ref(), error)
+        values = security.SecCertificateCopyValues(self._x509.ref(), keys.ref(), error)
         if values == ffi.NULL:
             error = CFErrorRef(error[0])
             raise Error("Unable to get certificate subject")
@@ -202,29 +212,104 @@ class X509(object):
 
 def load_certificate(certtype, buffer):
     """
-    Load a certificate with the supplied identity string.
+    Load a certificate with the supplied type and data. If the type is
+    L{None} then assume the data is the name of a Keychain identity,
+    otherwise assume it is data of the specified type.
 
-    @param certtype: ignored
-    @type certtype: -
-    @param buffer: name of the KeyChain item to lookup
+    @param certtype: certificate data type or L{None} to read from Keychain
+    @type certtype: L{int}
+    @param buffer: certificate data or name of the KeyChain item to lookup
     @type buffer: L{str}
 
     @return: the certificate
     @rtype: L{X509}
     """
 
+    if certtype is None:
+        return _load_keychain_item(buffer)
+    else:
+        return X509(_load_certificate_data(certtype, buffer, security.SecCertificateGetTypeID()))
+
+
+
+def load_privatekey(certtype, buffer, passphrase=None):
+    """
+    Load a private key with the supplied type and data. If the type is
+    L{None} then assume the data is the name of a Keychain identity,
+    otherwise assume it is data of the specified type.
+
+    @param certtype: certificate data type or L{None} to read from Keychain
+    @type certtype: L{int}
+    @param buffer: certificate data or name of the KeyChain item to lookup
+    @type buffer: L{str}
+
+    @return: the certificate
+    @rtype: L{X509}
+    """
+
+    if certtype is None:
+        return _load_keychain_item(buffer)
+    else:
+        return PKey(_load_certificate_data(certtype, buffer, security.SecKeyGetTypeID()))
+
+
+
+def _load_certificate_data(certtype, buffer, result_typeid):
+    """
+    Load a certificate with the supplied type and data.
+
+    @param certtype: ignored
+    @type certtype: -
+    @param buffer: name of the KeyChain item to lookup
+    @type buffer: L{str}
+    @param result_typeid: The type to return (certificate or key)
+    @type result_typeid: L{ffi.CFTypeID}
+
+    @return: the certificate
+    @rtype: L{X509}
+    """
+
     # First try to get the identity from the KeyChain
-    name = CFStringRef.fromString(buffer)
+    data = CFDataRef.fromString(buffer)
+    results = ffi.new("CFArrayRef *")
+    err = security.SecItemImport(data.ref(), ffi.NULL, ffi.NULL, ffi.NULL, 0, ffi.NULL, ffi.NULL, results)
+    if err != 0:
+        raise Error("Could not load certificate data")
+
+    results = CFArrayRef(results[0]).toList()
+
+    # Try to find a SecCertificateRef
+    for result in results:
+        if result.instanceTypeId() == result_typeid:
+            return result
+    else:
+        raise Error("No certificate in data")
+
+
+
+def _load_keychain_item(identifier):
+    """
+    Load a certificate with the supplied identity string.
+
+    @param identifier: name of the KeyChain item to lookup
+    @type identifier: L{str}
+
+    @return: the certificate
+    @rtype: L{X509}
+    """
+
+    # First try to get the identity from the KeyChain
+    name = CFStringRef.fromString(identifier)
     certificate = security.SecCertificateCopyPreferred(name.ref(), ffi.NULL)
     if certificate == ffi.NULL:
         try:
-            identity = _getIdentityCertificate(buffer)
+            identity = load_keychain_identity(identifier)
         except Error:
-            raise Error("Certificate for preferred name '{}' was not found".format(buffer))
+            raise Error("Identity for preferred name '{}' was not found".format(identifier))
         certificate = ffi.new("SecCertificateRef *")
         err = security.SecIdentityCopyCertificate(identity.ref(), certificate)
         if err != 0:
-            raise Error("Certificate for preferred name '{}' was not found".format(buffer))
+            raise Error("Identity for preferred name '{}' was not found".format(identifier))
         certificate = certificate[0]
     certificate = CFObjectRef(certificate)
 
@@ -232,7 +317,7 @@ def load_certificate(certtype, buffer):
 
 
 
-def _getIdentityCertificate(subject):
+def load_keychain_identity(subject):
     """
     Retrieve a SecIdentityRef from the KeyChain with a subject that exactly matches the passed in value.
 
@@ -240,8 +325,16 @@ def _getIdentityCertificate(subject):
     @type subject: L{str}
 
     @return: matched SecIdentityRef item or L{None}
-    @rtpe: L{CFObjectRef}
+    @rtype: L{CFObjectRef}
     """
+
+    # First try to load this from an identity preference
+    cfsubject = CFStringRef.fromString(subject)
+    identity = security.SecIdentityCopyPreferred(cfsubject.ref(), ffi.NULL, ffi.NULL)
+    if identity != ffi.NULL:
+        return CFObjectRef(identity)
+
+    # Now iterate items to find a match
     match = CFDictionaryRef.fromDict({
         CFStringRef.fromRef(security.kSecClass): CFStringRef.fromRef(security.kSecClassIdentity),
         CFStringRef.fromRef(security.kSecReturnRef): CFBooleanRef.fromBool(True),
@@ -265,8 +358,3 @@ def _getIdentityCertificate(subject):
         raise Error("Certificate with id '{}' was not found in the KeyChain".format(subject))
 
     return identity
-
-
-if __name__ == '__main__':
-    x = load_certificate("", "APSP:d6e49079-75ba-4380-a2cd-a66191469145")
-    print(x.get_subject().get_components())

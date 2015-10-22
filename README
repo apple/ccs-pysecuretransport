@@ -3,6 +3,10 @@ Getting Started
 
 OS X SecureTransport cffi based API that looks like pyOpenSSL.
 
+The goal here is to provide the minimum API needed to support
+TLS in Twisted. All certificate handling and verification is
+managed via OS X (via the Keychain and its trust related settings).
+
 
 Copyright and License
 =====================

@@ -13,12 +13,3 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
-
-from OpenSSL import crypto, SSL
-from OpenSSL.version import __version__
-
-__SecureTransport__ = True
-
-__all__ = [
-    'crypto', 'SSL', '__version__'
-]

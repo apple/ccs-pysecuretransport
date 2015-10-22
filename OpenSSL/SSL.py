@@ -23,7 +23,7 @@ object, and provide a way to use SecureTransport with Twisted with the minimum a
 from osx._corefoundation import ffi, lib as security
 from osx.corefoundation import CFArrayRef
 
-from OpenSSL.crypto import _getIdentityCertificate
+from OpenSSL.crypto import load_certificate, load_privatekey, load_keychain_identity, FILETYPE_PEM
 
 
 class Error(Exception):
@@ -91,6 +91,8 @@ class Context(object):
         @type method: L{int}
         """
         self.method = method
+        self.certificate = None
+        self.pkey = None
         self.identity = None
         self.options = set()
 
@@ -110,11 +112,14 @@ class Context(object):
         Certificate file to use - for SecureTransport we actually treat the file name as the certificate name
         to lookup in the KeyChain. Set it only if an identity has not already been set.
 
-        @param certificateFileName: subject name of the certificate to use
+        @param certificateFileName: name of the certificate file to use
         @type certificateFileName: L{str}
         """
         if self.identity is None and certificateFileName:
-            self.identity = _getIdentityCertificate(certificateFileName)
+            with open(certificateFileName) as f:
+                data = f.read()
+            self.certificate = load_certificate(FILETYPE_PEM, data)
+            raise NotImplementedError("SecureTransport cannot use cert files directly. Put them in the keychain.")
 
 
     def use_privatekey_file(self, privateKeyFileName):
@@ -122,15 +127,23 @@ class Context(object):
         Private key file to use - for SecureTransport we actually treat the file name as the certificate name
         to lookup in the KeyChain. Set it only if an identity has not already been set.
 
-        @param certificateFileName: subject name of the certificate to use
-        @type certificateFileName: L{str}
+        @param privateKeyFileName: name of the private key file to use
+        @type privateKeyFileName: L{str}
         """
         if self.identity is None and privateKeyFileName:
-            self.identity = _getIdentityCertificate(privateKeyFileName)
+            with open(privateKeyFileName) as f:
+                data = f.read()
+            self.pkey = load_privatekey(FILETYPE_PEM, data)
+            raise NotImplementedError("SecureTransport cannot use of pkey files directly. Put them in the keychain.")
 
 
     def use_certificate_chain_file(self, certfile):
         pass
+
+
+    def use_keychain_identity(self, identity):
+        if self.identity is None and identity:
+            self.identity = load_keychain_identity(identity)
 
 
     def set_passwd_cb(self, callback, userdata=None):
@@ -365,7 +378,7 @@ class Connection(object):
             self.shutdown()
             raise Error("No certificate")
 
-        # Add the crtificate
+        # Add the certificate
         if self.context.identity is not None:
             certs = CFArrayRef.fromList([self.context.identity])
             err = security.SSLSetCertificate(self.ctx, certs.ref())
