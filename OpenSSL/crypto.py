@@ -317,22 +317,74 @@ def _load_keychain_item(identifier):
 
 
 
-def load_keychain_identity(subject):
+def check_keychain_identity(identity):
     """
-    Retrieve a SecIdentityRef from the KeyChain with a subject that exactly matches the passed in value.
+    Verify that the Keychain identity exists and that the private key is accessible.
 
-    @param subject: subject value to match
-    @type subject: L{str}
+    @param identity: identity value to match
+    @type identity: L{str}
+
+    @return: empty L{str} if OK, error message if not
+    @rtype: L{str}
+    """
+
+    # Always turn off user interaction
+    security.SecKeychainSetUserInteractionAllowed(False)
+
+    try:
+        secidentity = load_keychain_identity(identity)
+    except Error:
+        return "Unable to load Keychain identity: {}".format(identity)
+    pkey = ffi.new("SecKeyRef *")
+    err = security.SecIdentityCopyPrivateKey(secidentity.ref(), pkey)
+    if err != 0:
+        return "Unable to load private key for Keychain identity: {}".format(identity)
+    pkey = CFObjectRef(pkey[0])
+
+    # Try to sign some data with the pkey to check we have access
+    error = ffi.new("CFErrorRef *")
+    signer = security.SecSignTransformCreate(pkey.ref(), error)
+    if error[0] != ffi.NULL:
+        cferror = CFErrorRef(error[0])
+        return "Unable to use private key for Keychain identity: {} - {}".format(identity, cferror.description())
+    signer = CFObjectRef(signer)
+
+    signMe = CFDataRef.fromString("sign me")
+    security.SecTransformSetAttribute(
+        signer.ref(),
+        security.kSecTransformInputAttributeName,
+        signMe.ref(),
+        error
+    )
+    if error[0] != ffi.NULL:
+        cferror = CFErrorRef(error[0])
+        return "Unable to use private key for Keychain identity: {} - {}".format(identity, cferror.description())
+
+    signature = security.SecTransformExecute(signer.ref(), error)
+    if error[0] != ffi.NULL or signature == ffi.NULL:
+        cferror = CFErrorRef(error[0])
+        return "Unable to use private key for Keychain identity: {} - {}".format(identity, cferror.description())
+
+    return ""
+
+
+
+def load_keychain_identity(identity):
+    """
+    Retrieve a SecIdentityRef from the KeyChain with a identity that exactly matches the passed in value.
+
+    @param identity: identity value to match
+    @type identity: L{str}
 
     @return: matched SecIdentityRef item or L{None}
     @rtype: L{CFObjectRef}
     """
 
     # First try to load this from an identity preference
-    cfsubject = CFStringRef.fromString(subject)
-    identity = security.SecIdentityCopyPreferred(cfsubject.ref(), ffi.NULL, ffi.NULL)
-    if identity != ffi.NULL:
-        return CFObjectRef(identity)
+    cfsubject = CFStringRef.fromString(identity)
+    secidentity = security.SecIdentityCopyPreferred(cfsubject.ref(), ffi.NULL, ffi.NULL)
+    if secidentity != ffi.NULL:
+        return CFObjectRef(secidentity)
 
     # Now iterate items to find a match
     match = CFDictionaryRef.fromDict({
@@ -351,10 +403,10 @@ def load_keychain_identity(subject):
 
     result = CFArrayRef(result[0])
     for item in result.toList():
-        if item[str(CFStringRef.fromRef(security.kSecAttrLabel))] == subject:
-            identity = item[str(CFStringRef.fromRef(security.kSecValueRef))]
+        if item[str(CFStringRef.fromRef(security.kSecAttrLabel))] == identity:
+            secidentity = item[str(CFStringRef.fromRef(security.kSecValueRef))]
             break
     else:
-        raise Error("Certificate with id '{}' was not found in the KeyChain".format(subject))
+        raise Error("Could not find Keychain identity: {}".format(identity))
 
-    return identity
+    return secidentity
