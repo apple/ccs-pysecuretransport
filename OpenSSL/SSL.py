@@ -349,16 +349,18 @@ class Connection(object):
 
         self.ctx = security.SSLCreateContext(ffi.NULL, security.kSSLClientSide if self.is_client else security.kSSLServerSide, security.kSSLStreamType)
 
-        if OP_NO_SSLv2 in self.context.options:
-            security.SSLSetProtocolVersionEnabled(self.ctx, security.kSSLProtocol2, False)
-        if OP_NO_SSLv3 in self.context.options:
-            security.SSLSetProtocolVersionEnabled(self.ctx, security.kSSLProtocol3, False)
-        if OP_NO_TLSv1 in self.context.options:
-            security.SSLSetProtocolVersionEnabled(self.ctx, security.kTLSProtocol1, False)
-        if OP_NO_TLSv1_1 in self.context.options:
-            security.SSLSetProtocolVersionEnabled(self.ctx, security.kTLSProtocol11, False)
-        if OP_NO_TLSv1_2 in self.context.options:
-            security.SSLSetProtocolVersionEnabled(self.ctx, security.kTLSProtocol12, False)
+        minVersion = None
+        for option, minValue in (
+            (OP_NO_SSLv2, security.kSSLProtocol3),
+            (OP_NO_SSLv3, security.kTLSProtocol1),
+            (OP_NO_TLSv1, security.kTLSProtocol11),
+            (OP_NO_TLSv1_1, security.kTLSProtocol12),
+            (OP_NO_TLSv1_2, security.kTLSProtocol12),   # TLS1.2 is the highest supported right now
+        ):
+            if option in self.context.options:
+                minVersion = minValue
+        if minVersion is not None:
+            security.SSLSetProtocolVersionMin(self.ctx, minVersion)
 
         # Make sure we have a reference back to this L{Connection} in the SecureTransport callbacks
         self.connref = ffi.new("int *", self.engine_id)
