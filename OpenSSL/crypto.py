@@ -364,6 +364,7 @@ def check_keychain_identity(identity):
     if error[0] != ffi.NULL or signature == ffi.NULL:
         cferror = CFErrorRef(error[0])
         return "Unable to use private key for Keychain identity: {} - {}".format(identity, cferror.description())
+    signature = CFObjectRef(signature)
 
     return ""
 
