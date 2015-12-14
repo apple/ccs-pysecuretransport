@@ -396,7 +396,9 @@ class Connection(object):
         handshake data exchange to take place. So this will likely get errSSLWouldBlock several times.
         """
         if self.ctx is None:
-            raise Error("No context")
+            # Just treat this as a failure to read data as it is possible the connection
+            # got closed right before, or during, the handshake.
+            raise WantReadError
         self._in_handshake = True
         err = security.SSLHandshake(self.ctx)
         if err == 0:
