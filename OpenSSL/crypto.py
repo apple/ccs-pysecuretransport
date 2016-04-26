@@ -317,7 +317,7 @@ def _load_keychain_item(identifier):
 
 
 
-def check_keychain_identity(identity):
+def check_keychain_identity(identity, allowInteraction=False):
     """
     Verify that the Keychain identity exists and that the private key is accessible.
 
@@ -329,7 +329,7 @@ def check_keychain_identity(identity):
     """
 
     # Always turn off user interaction
-    security.SecKeychainSetUserInteractionAllowed(False)
+    security.SecKeychainSetUserInteractionAllowed(allowInteraction)
 
     try:
         secidentity = load_keychain_identity(identity)
