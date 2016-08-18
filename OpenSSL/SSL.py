@@ -94,6 +94,7 @@ class Context(object):
         self.certificate = None
         self.pkey = None
         self.identity = None
+        self.peerName = None
         self.options = set()
 
 
@@ -144,6 +145,10 @@ class Context(object):
     def use_keychain_identity(self, identity):
         if self.identity is None and identity:
             self.identity = load_keychain_identity(identity)
+
+
+    def set_peer_name(self, name):
+        self.peerName = name
 
 
     def set_passwd_cb(self, callback, userdata=None):
@@ -379,6 +384,17 @@ class Connection(object):
         if not self.is_client and self.context.identity is None:
             self.shutdown()
             raise Error("No certificate")
+
+        # Must have a peer name if we are a client
+        if self.is_client and not self.context.peerName:
+            self.shutdown()
+            raise Error("No peer name set with client connection.")
+        elif self.is_client:
+            # Always set the client peer name for proper certificate validation
+            err = security.SSLSetPeerDomainName(self.ctx, self.context.peerName, len(self.context.peerName))
+            if err:
+                self.shutdown()
+                raise Error(err)
 
         # Add the certificate
         if self.context.identity is not None:
