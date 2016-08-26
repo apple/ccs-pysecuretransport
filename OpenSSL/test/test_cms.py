@@ -24,6 +24,7 @@ import unittest
 Security framework CMS tests.
 """
 
+
 class CMSTestCase(unittest.TestCase):
     """
     Tests for Security framework CMS cffi wrappers.
@@ -96,7 +97,6 @@ class CMSTestCase(unittest.TestCase):
         self.assertEqual(error, 0)
         result = CFDataRef(result[0])
         self.assertEqual(result.toString(), sign)
-
 
     def test_cms_sign_verify_badsig(self):
         """

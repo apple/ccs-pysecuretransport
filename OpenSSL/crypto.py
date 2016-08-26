@@ -42,12 +42,12 @@ FILETYPE_DEFAULT = 3
 TYPE_RSA = 6
 TYPE_DSA = 116
 
+
 class Error(Exception):
     """
     An error occurred in an `OpenSSL.crypto` API.
     """
     pass
-
 
 
 class PKey(object):
@@ -59,19 +59,17 @@ class PKey(object):
         self._pkey = pkey
 
 
-
 class X509Name(object):
     """
     Equivalent of an pyOpenSSL OpenSSL.crypto.X509Name object.
     """
+
     def __init__(self, name, components=None):
         self.name = name
         self.components = components
 
-
     def get_components(self):
         return self.components.items()
-
 
 
 class X509(object):
@@ -82,90 +80,68 @@ class X509(object):
     def __init__(self, certificate=None):
         self._x509 = certificate
 
-
     def set_version(self, version):
         raise NotImplementedError
-
 
     def get_version(self):
         raise NotImplementedError
 
-
     def get_pubkey(self):
         raise NotImplementedError
-
 
     def set_pubkey(self, pkey):
         raise NotImplementedError
 
-
     def sign(self, pkey, digest):
         raise NotImplementedError
-
 
     def get_signature_algorithm(self):
         raise NotImplementedError
 
-
     def digest(self, digest_name):
         raise NotImplementedError
-
 
     def subject_name_hash(self):
         raise NotImplementedError
 
-
     def set_serial_number(self, serial):
         raise NotImplementedError
-
 
     def get_serial_number(self):
         raise NotImplementedError
 
-
     def gmtime_adj_notAfter(self, amount):
         raise NotImplementedError
-
 
     def gmtime_adj_notBefore(self, amount):
         raise NotImplementedError
 
-
     def has_expired(self):
         raise NotImplementedError
-
 
     def get_notBefore(self):
         raise NotImplementedError
 
-
     def set_notBefore(self, when):
         raise NotImplementedError
-
 
     def get_notAfter(self):
         raise NotImplementedError
 
-
     def set_notAfter(self, when):
         raise NotImplementedError
-
 
     def _get_name(self, which):
         raise NotImplementedError
 
-
     def _set_name(self, which, name):
         raise NotImplementedError
-
 
     def get_issuer(self):
         raise NotImplementedError
 
-
     def set_issuer(self, issuer):
         raise NotImplementedError
-
 
     def get_subject(self):
         """
@@ -189,25 +165,19 @@ class X509(object):
                     k = OID2STR.get(item[str(CFStringRef.fromRef(security.kSecPropertyKeyLabel))], "Unknown")
                     components[k] = v
 
-
         return X509Name("Subject Name", components)
-
 
     def set_subject(self, subject):
         raise NotImplementedError
 
-
     def get_extension_count(self):
         raise NotImplementedError
-
 
     def add_extensions(self, extensions):
         raise NotImplementedError
 
-
     def get_extension(self, index):
         raise NotImplementedError
-
 
 
 def load_certificate(certtype, buffer):
@@ -231,7 +201,6 @@ def load_certificate(certtype, buffer):
         return X509(_load_certificate_data(certtype, buffer, security.SecCertificateGetTypeID()))
 
 
-
 def load_privatekey(certtype, buffer, passphrase=None):
     """
     Load a private key with the supplied type and data. If the type is
@@ -251,7 +220,6 @@ def load_privatekey(certtype, buffer, passphrase=None):
         return _load_keychain_item(buffer)
     else:
         return PKey(_load_certificate_data(certtype, buffer, security.SecKeyGetTypeID()))
-
 
 
 def _load_certificate_data(certtype, buffer, result_typeid):
@@ -286,7 +254,6 @@ def _load_certificate_data(certtype, buffer, result_typeid):
         raise Error("No certificate in data")
 
 
-
 def _load_keychain_item(identifier):
     """
     Load a certificate with the supplied identity string.
@@ -314,7 +281,6 @@ def _load_keychain_item(identifier):
     certificate = CFObjectRef(certificate)
 
     return X509(certificate)
-
 
 
 def check_keychain_identity(identity, allowInteraction=False):
@@ -367,7 +333,6 @@ def check_keychain_identity(identity, allowInteraction=False):
     signature = CFObjectRef(signature)
 
     return ""
-
 
 
 def load_keychain_identity(identity):

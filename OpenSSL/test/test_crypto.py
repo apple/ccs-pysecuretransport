@@ -23,6 +23,7 @@ import unittest
 crypto tests.
 """
 
+
 class CryptoTestCase(unittest.TestCase):
     """
     Tests for L{crypto} module.
@@ -43,7 +44,6 @@ class CryptoTestCase(unittest.TestCase):
         for item in cert.get_subject().get_components():
             if item[0] == "CN":
                 self.assertEqual(item[1], "localhost")
-
 
     def test_load_privatekey_pem(self):
         """

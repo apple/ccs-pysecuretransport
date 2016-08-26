@@ -33,20 +33,16 @@ class Error(Exception):
     pass
 
 
-
 class WantReadError(Error):
     pass
-
 
 
 class WantWriteError(Error):
     pass
 
 
-
 class WantX509LookupError(Error):
     pass
-
 
 
 class ZeroReturnError(Error):
@@ -77,7 +73,6 @@ VERIFY_FAIL_IF_NO_PEER_CERT = 0x02
 VERIFY_CLIENT_ONCE = 0x04
 
 
-
 class Context(object):
     """
     Equivalent of an pyOpenSSL OpenSSL.SSL.Context object, with many of the methods stubbed out.
@@ -97,7 +92,6 @@ class Context(object):
         self.peerName = None
         self.options = set()
 
-
     def set_options(self, option):
         """
         Add an option to this context.
@@ -106,7 +100,6 @@ class Context(object):
         @type option: L{int}
         """
         self.options.add(option)
-
 
     def use_certificate_file(self, certificateFileName):
         """
@@ -122,7 +115,6 @@ class Context(object):
             self.certificate = load_certificate(FILETYPE_PEM, data)
             raise NotImplementedError("SecureTransport cannot use cert files directly. Put them in the keychain.")
 
-
     def use_privatekey_file(self, privateKeyFileName):
         """
         Private key file to use - for SecureTransport we actually treat the file name as the certificate name
@@ -137,31 +129,24 @@ class Context(object):
             self.pkey = load_privatekey(FILETYPE_PEM, data)
             raise NotImplementedError("SecureTransport cannot use of pkey files directly. Put them in the keychain.")
 
-
     def use_certificate_chain_file(self, certfile):
         pass
-
 
     def use_keychain_identity(self, identity):
         if self.identity is None and identity:
             self.identity = load_keychain_identity(identity)
 
-
     def set_peer_name(self, name):
         self.peerName = name
-
 
     def set_passwd_cb(self, callback, userdata=None):
         pass
 
-
     def set_cipher_list(self, cipher_list):
         pass
 
-
     def set_session_id(self, buf):
         pass
-
 
     def set_verify(self, mode, callback):
         """
@@ -170,7 +155,6 @@ class Context(object):
         """
         pass
 
-
     def set_verify_depth(self, depth):
         """
         We are going to rely on SecureTransport's own KeyChain based verification rather than overriding with
@@ -178,10 +162,8 @@ class Context(object):
         """
         pass
 
-
     def add_client_ca(self, certificate_authority):
         pass
-
 
 
 class Connection(object):
@@ -217,7 +199,6 @@ class Connection(object):
         self.__class__.next_engine_id += 1
         self.engines[self.engine_id] = self
 
-
     def set_app_data(self, protocol):
         """
         We need access to the Twisted L{Protocol} object so we can get to the associated L{Transport} object
@@ -228,7 +209,6 @@ class Connection(object):
         """
         self.protocol = protocol
 
-
     def set_connect_state(self):
         """
         Called when a client connection needs to be initiated.
@@ -236,14 +216,12 @@ class Connection(object):
         self.is_client = True
         self.connect()
 
-
     def set_accept_state(self):
         """
         Called when a server connection needs to be initiated.
         """
         self.is_client = False
         self.connect()
-
 
     @staticmethod
     @ffi.callback("OSStatus (*) ( SSLConnectionRef connection, void *data, size_t *dataLength )")
@@ -274,7 +252,6 @@ class Connection(object):
 
         return 0
 
-
     @staticmethod
     @ffi.callback("OSStatus (*) ( SSLConnectionRef connection, const void *data, size_t *dataLength )")
     def _write(fdptr, data, dataLength):
@@ -301,7 +278,6 @@ class Connection(object):
 
         return 0
 
-
     def _sslread(self, bytes):
         """
         Wrapper for SecureTransport SSLRead method.
@@ -327,7 +303,6 @@ class Connection(object):
             self.shutdown()
             raise Error(err)
 
-
     def _sslwrite(self, data):
         """
         Wrapper for SecureTransport SSLWrite method.
@@ -345,7 +320,6 @@ class Connection(object):
         else:
             self.shutdown()
             raise Error(err)
-
 
     def connect(self):
         """
@@ -404,7 +378,6 @@ class Connection(object):
                 self.shutdown()
                 raise Error(err)
 
-
     def do_handshake(self):
         """
         Carry out the SecureTransport SSLHandshake. Note that this can be called multiple times during the SSL connection
@@ -425,14 +398,11 @@ class Connection(object):
             self.shutdown()
             raise Error(err)
 
-
     def get_peer_certificate(self):
         return None
 
-
     def get_cipher_list(self):
         return ("null",)
-
 
     def shutdown(self):
         """
@@ -449,13 +419,11 @@ class Connection(object):
                 raise Error(err)
         return True
 
-
     def bio_read(self, bytes):
         """
         We always send immediately so there is nothing to do here.
         """
         raise WantReadError
-
 
     def bio_write(self, bytes):
         """
@@ -467,10 +435,8 @@ class Connection(object):
         """
         self.bytes.append(bytes)
 
-
     def bio_shutdown(self):
         self.shutdown()
-
 
     def recv(self, bytes):
         """
@@ -486,7 +452,6 @@ class Connection(object):
         data = self._sslread(bytes)
         return data[:]
 
-
     def send(self, bytes):
         """
         Send application level data to SSL.
@@ -499,7 +464,6 @@ class Connection(object):
             self.do_handshake()
 
         return self._sslwrite(bytes)
-
 
     def getBytes(self, buf, blen):
         """
