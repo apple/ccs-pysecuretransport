@@ -26,4 +26,5 @@ setup(
     packages=[
         'OpenSSL',
     ],
+    install_requires=["osxframeworks", ],
 )
